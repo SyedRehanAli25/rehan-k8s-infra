@@ -33,14 +33,13 @@ ansible-playbook -i ansible/inventory.ini ansible/playbook.yml
 
 echo "Kubernetes cluster setup complete!"
 
-# Optional: Check if nginx is accessible on the first node
-NODE_PORT=31892
-FIRST_NODE_IP=$(echo "$NODE_IPS" | head -n1)
-
-echo "Checking nginx on http://$FIRST_NODE_IP:$NODE_PORT ..."
-if curl -s --max-time 5 "http://$FIRST_NODE_IP:$NODE_PORT" | grep -q "Welcome to nginx"; then
-  echo "Nginx is up and serving content on $FIRST_NODE_IP:$NODE_PORT"
-else
-  echo "Warning: Could not verify nginx on $FIRST_NODE_IP:$NODE_PORT"
-fi
+echo "Verifying NGINX NodePort service..."
+for NODE_IP in $NODE_IPS; do
+  echo -n "Checking http://$NODE_IP:31892 ... "
+  if curl -s --max-time 5 http://$NODE_IP:31892 | grep -q "Welcome to nginx"; then
+    echo "✅ SUCCESS"
+  else
+    echo "❌ FAILED"
+  fi
+done
 
