@@ -1,0 +1,90 @@
+- hosts: k8s_nodes
+  become: yes
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install dependencies
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+        state: present
+
+    - name: Add Kubernetes apt key
+      apt_key:
+        url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+        state: present
+
+    - name: Add Kubernetes apt repository
+      apt_repository:
+        repo: deb https://apt.kubernetes.io/ kubernetes-xenial main
+        state: present
+
+    - name: Install kubelet, kubeadm and kubectl
+      apt:
+        name:
+          - kubelet
+          - kubeadm
+          - kubectl
+        state: present
+        update_cache: yes
+
+    - name: Hold kube packages at current version
+      apt:
+        name:
+          - kubelet
+          - kubeadm
+          - kubectl
+        state: hold
+
+    - name: Disable swap
+      command: swapoff -a
+      ignore_errors: yes
+
+    - name: Comment swap in fstab
+      replace:
+        path: /etc/fstab
+        regexp: '^([^#].*swap.*)$'
+        replace: '# \1'
+
+    - name: Initialize Kubernetes on first node only
+      command: kubeadm init --pod-network-cidr=10.244.0.0/16
+      when: inventory_hostname == groups['k8s_nodes'][0]
+      register: kubeadm_init
+      ignore_errors: yes
+
+    - name: Set kubeconfig for ubuntu user on first node
+      become_user: ubuntu
+      shell: |
+        mkdir -p $HOME/.kube
+        sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+        sudo chown $(id -u):$(id -g) $HOME/.kube/config
+      when: inventory_hostname == groups['k8s_nodes'][0]
+      ignore_errors: yes
+
+    - name: Install Flannel network plugin on first node
+      become_user: ubuntu
+      shell: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+      when: inventory_hostname == groups['k8s_nodes'][0]
+      ignore_errors: yes
+
+    - name: Get join command on first node
+      command: kubeadm token create --print-join-command
+      when: inventory_hostname == groups['k8s_nodes'][0]
+      register: join_command
+
+    - name: Wait for first node to be ready
+      wait_for:
+        port: 6443
+        host: "{{ ansible_host }}"
+        timeout: 300
+      when: inventory_hostname != groups['k8s_nodes'][0]
+
+    - name: Join other nodes to cluster
+      command: "{{ hostvars[groups['k8s_nodes'][0]].join_command.stdout }}"
+      when: inventory_hostname != groups['k8s_nodes'][0]
+

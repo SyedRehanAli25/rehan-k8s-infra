@@ -1,0 +1,59 @@
+---
+- name: Setup Kubernetes apt repo and install kube tools
+  hosts: k8s_nodes
+  become: true
+
+  tasks:
+    - name: Remove old Kubernetes repo if any
+      file:
+        path: /etc/apt/sources.list.d/kubernetes.list
+        state: absent
+
+    - name: Create keyrings directory
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Download Kubernetes GPG key for v1.28
+      get_url:
+        url: https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key
+        dest: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        mode: '0644'
+
+    - name: Add Kubernetes community repository for v1.28
+      copy:
+        dest: /etc/apt/sources.list.d/kubernetes.list
+        content: |
+          deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /
+        mode: '0644'
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install kubelet, kubeadm, kubectl
+      apt:
+        name:
+          - kubelet
+          - kubeadm
+          - kubectl
+        state: present
+        allow_downgrade: yes
+        update_cache: yes
+
+    - name: Hold kubelet
+      dpkg_selections:
+        name: kubelet
+        selection: hold
+
+    - name: Hold kubeadm
+      dpkg_selections:
+        name: kubeadm
+        selection: hold
+
+    - name: Hold kubectl
+      dpkg_selections:
+        name: kubectl
+        selection: hold
+
