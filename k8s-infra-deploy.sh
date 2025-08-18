@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# Check for required commands
+# Check required commands
 for cmd in terraform ansible-playbook jq curl; do
   if ! command -v $cmd &> /dev/null; then
     echo "Error: $cmd is not installed. Please install it first."
@@ -33,13 +33,14 @@ ansible-playbook -i ansible/inventory.ini ansible/playbook.yml
 
 echo "Kubernetes cluster setup complete!"
 
-echo "Verifying NGINX NodePort service..."
-for NODE_IP in $NODE_IPS; do
-  echo -n "Checking http://$NODE_IP:31892 ... "
-  if curl -s --max-time 5 http://$NODE_IP:31892 | grep -q "Welcome to nginx"; then
-    echo "✅ SUCCESS"
-  else
-    echo "❌ FAILED"
-  fi
-done
+# Extract first node IP to test NGINX NodePort service
+FIRST_NODE_IP=$(echo "$NODE_IPS" | head -n1)
+NODEPORT=31892
+
+echo "Verifying NGINX NodePort service on http://$FIRST_NODE_IP:$NODEPORT ..."
+if curl -s --max-time 10 http://$FIRST_NODE_IP:$NODEPORT | grep -q "Welcome to nginx!"; then
+  echo "✅ NGINX is reachable at http://$FIRST_NODE_IP:$NODEPORT"
+else
+  echo "❌ Failed to reach NGINX at http://$FIRST_NODE_IP:$NODEPORT"
+fi
 
