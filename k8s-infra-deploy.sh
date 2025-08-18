@@ -2,7 +2,7 @@
 set -e
 
 # Check required commands
-for cmd in terraform ansible-playbook jq curl kubectl; do
+for cmd in terraform ansible-playbook jq curl; do
   if ! command -v $cmd &> /dev/null; then
     echo "Error: $cmd is not installed. Please install it first."
     exit 1
@@ -33,31 +33,33 @@ ansible-playbook -i ansible/inventory.ini ansible/playbook.yml
 
 echo "Kubernetes cluster setup complete!"
 
-# Get the IP of the first node (can also be done via kubectl)
-MASTER_NODE="${NODE_IPS%%$'\n'*}"
-echo "Using master node: $MASTER_NODE"
+echo "Fetching public node IPs from Terraform..."
+PUBLIC_IPS=($(terraform output -json node_ips | jq -r '.[]'))
 
-echo "Setting up kubeconfig to talk to the cluster..."
-scp -i ~/.ssh/id_rsa ubuntu@$MASTER_NODE:/home/ubuntu/.kube/config ~/.kube/config
+# Use the first node (master) to get the NodePort value
+MASTER_NODE_IP="${PUBLIC_IPS[0]}"
+NODEPORT=$(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@$MASTER_NODE_IP \
+  "kubectl get svc -n default -l app=nginx -o jsonpath='{.items[0].spec.ports[0].nodePort}'")
 
-echo "Getting NGINX service details..."
-NGINX_SERVICE=$(kubectl get svc -n default -l app=nginx -o json)
+if [ -z "$NODEPORT" ]; then
+  echo "❌ Could not retrieve NodePort for NGINX"
+  exit 1
+fi
 
-# Extract NodePort and use the same node IP as before
-NODEPORT=$(echo "$NGINX_SERVICE" | jq -r '.items[0].spec.ports[0].nodePort')
+echo "✅ Discovered NodePort: $NODEPORT"
+echo "🔍 Checking which node is serving NGINX..."
 
-# Use the known IP from earlier
-echo "Waiting for NGINX to be ready at http://$MASTER_NODE:$NODEPORT ..."
-for i in {1..10}; do
-  if curl -4 -s --max-time 5 http://$MASTER_NODE:$NODEPORT | grep -q "Welcome to nginx!"; then
-    echo "✅ NGINX is reachable at http://$MASTER_NODE:$NODEPORT"
+# Loop through public IPs and test the NodePort
+for IP in "${PUBLIC_IPS[@]}"; do
+  echo "Testing http://$IP:$NODEPORT ..."
+  if curl -s --max-time 5 http://$IP:$NODEPORT | grep -q "Welcome to nginx"; then
+    echo "✅ NGINX is reachable at http://$IP:$NODEPORT"
     exit 0
   else
-    echo "⏳ Attempt $i: NGINX not ready yet, retrying in 5 seconds..."
-    sleep 5
+    echo "⏳ $IP is not serving NGINX, trying next..."
   fi
 done
 
-echo "❌ Final attempt failed. NGINX not reachable at http://$MASTER_NODE:$NODEPORT"
+echo "❌ NGINX not reachable on any public IPs with NodePort $NODEPORT"
 exit 1
 
