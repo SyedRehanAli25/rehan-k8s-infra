@@ -16,9 +16,9 @@ terraform apply -auto-approve
 
 echo "Fetching node IPs from Terraform output..."
 NODE_IPS=$(terraform output -json node_ips | jq -r '.[]')
+cd ..
 
 echo "Writing Ansible inventory with node IPs..."
-cd ..
 cat > ansible/inventory.ini <<EOF
 [k8s_nodes]
 $NODE_IPS
@@ -34,7 +34,9 @@ ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i ansible/inventory.ini ansibl
 echo "Kubernetes cluster setup complete!"
 
 echo "Fetching public node IPs from Terraform..."
+cd terraform
 PUBLIC_IPS=($(terraform output -json node_ips | jq -r '.[]'))
+cd ..
 
 # Use the first node (master) to get the NodePort value
 MASTER_NODE_IP="${PUBLIC_IPS[0]}"
@@ -42,24 +44,24 @@ NODEPORT=$(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@$MASTER_NODE_
   "kubectl get svc -n default -l app=nginx -o jsonpath='{.items[0].spec.ports[0].nodePort}'")
 
 if [ -z "$NODEPORT" ]; then
-  echo "❌ Could not retrieve NodePort for NGINX"
+  echo " Could not retrieve NodePort for NGINX"
   exit 1
 fi
 
-echo "✅ Discovered NodePort: $NODEPORT"
-echo "🔍 Checking which node is serving NGINX..."
+echo " Discovered NodePort: $NODEPORT"
+echo "Checking which node is serving NGINX..."
 
 # Loop through public IPs and test the NodePort
 for IP in "${PUBLIC_IPS[@]}"; do
   echo "Testing http://$IP:$NODEPORT ..."
   if curl -s --max-time 5 http://$IP:$NODEPORT | grep -q "Welcome to nginx"; then
-    echo "✅ NGINX is reachable at http://$IP:$NODEPORT"
+    echo " NGINX is reachable at http://$IP:$NODEPORT"
     exit 0
   else
-    echo "⏳ $IP is not serving NGINX, trying next..."
+    echo " $IP is not serving NGINX, trying next..."
   fi
 done
 
-echo "❌ NGINX not reachable on any public IPs with NodePort $NODEPORT"
+echo " NGINX not reachable on any public IPs with NodePort $NODEPORT"
 exit 1
 
