@@ -1,0 +1,35 @@
+pipeline {
+    agent any
+
+    environment {
+        SSH_CREDENTIALS = 'k8s-ssh-key'  // Replace with your Jenkins SSH credential ID
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Run Deploy Script') {
+            steps {
+                // Make deploy script executable
+                sh 'chmod +x k8s-infra-deploy.sh'
+
+                // Run deploy script
+                sh './k8s-infra-deploy.sh'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Deployment successful!'
+        }
+        failure {
+            echo 'Deployment failed!'
+        }
+    }
+}
+
