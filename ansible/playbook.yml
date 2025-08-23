@@ -16,21 +16,27 @@
         mode: '0755'
 
     - name: Download Kubernetes GPG key for v1.28
-      get_url:
-        url: https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key
-        dest: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-        mode: '0644'
+      shell: |
+        curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key -o /tmp/k8s-release.key
+      args:
+        creates: /tmp/k8s-release.key
 
-    - name: Add Kubernetes community repository for v1.28
+    - name: Convert key to GPG format (dearmor)
+      command: >
+        gpg --dearmor --yes --output /etc/apt/keyrings/kubernetes-apt-keyring.gpg /tmp/k8s-release.key
+      args:
+        creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+    - name: Add Kubernetes APT repository for v1.28
       copy:
         dest: /etc/apt/sources.list.d/kubernetes.list
         content: |
           deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /
-        mode: '0644'
 
-    - name: Update apt cache
+    - name: Update apt cache after adding Kubernetes repo
       apt:
         update_cache: yes
+        cache_valid_time: 3600
 
     - name: Install kubelet, kubeadm, kubectl
       apt:
@@ -40,7 +46,7 @@
           - kubectl
         state: present
         allow_downgrade: yes
-        update_cache: yes
+        update_cache: no
 
     - name: Hold kubelet
       dpkg_selections:
