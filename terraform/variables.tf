@@ -1,7 +1,7 @@
 variable "key_name" {
   description = "SSH key pair name to access EC2 instances"
   type        = string
-  default     = "my-k8s-key"
+  default     = "k8s-ssh-key"
 }
 
 variable "instance_type" {
