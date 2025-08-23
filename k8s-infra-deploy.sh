@@ -29,7 +29,7 @@ ansible_ssh_private_key_file=~/.ssh/id_rsa
 EOF
 
 echo "Running Ansible playbook to configure Kubernetes nodes..."
-ansible-playbook -i ansible/inventory.ini ansible/playbook.yml
+ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i ansible/inventory.ini ansible/playbook.yml
 
 echo "Kubernetes cluster setup complete!"
 
