@@ -2,7 +2,11 @@ pipeline {
     agent any
 
     environment {
-        SSH_CREDENTIALS = 'k8s-ssh-key'  // Replace with your Jenkins SSH credential ID
+<<<<<<< HEAD
+        SSH_CREDENTIALS = 'k8s-ssh-key'  
+=======
+        SSH_CREDENTIALS = 'k8s-ssh-key' 
+>>>>>>> 32c379b (Update k8s-infra-Jenkinsfile)
     }
 
     stages {
@@ -14,21 +18,23 @@ pipeline {
 
         stage('Run Deploy Script') {
             steps {
-                // Make deploy script executable
-                sh 'chmod +x k8s-infra-deploy.sh'
+                sshagent (credentials: [env.SSH_CREDENTIALS]) {
+                    // Make the deploy script executable
+                    sh 'chmod +x k8s-infra-deploy.sh'
 
-                // Run deploy script
-                sh './k8s-infra-deploy.sh'
+                    // Run the deploy script
+                    sh './k8s-infra-deploy.sh'
+                }
             }
         }
     }
 
     post {
         success {
-            echo 'Deployment successful!'
+            echo ' Deployment successful!'
         }
         failure {
-            echo 'Deployment failed!'
+            echo ' Deployment failed!'
         }
     }
 }
