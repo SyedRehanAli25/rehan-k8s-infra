@@ -60,11 +60,11 @@ fi
 
 echo " Discovered NodePort: $NODEPORT"
 echo "Checking which node is serving NGINX..."
-
-# Loop through public IPs and test the NodePort
+# Loop through public IPs and test the NodePort remotely
 for IP in "${PUBLIC_IPS[@]}"; do
-  echo "Testing http://$IP:$NODEPORT ..."
-  if curl -s --max-time 5 http://$IP:$NODEPORT | grep -q "Welcome to nginx"; then
+  echo "Testing http://$IP:$NODEPORT from remote node..."
+  if ssh -o StrictHostKeyChecking=no -i /var/lib/jenkins/.ssh/id_rsa ubuntu@$IP \
+    "curl -s --max-time 5 http://localhost:$NODEPORT" | grep -q "Welcome to nginx"; then
     echo " NGINX is reachable at http://$IP:$NODEPORT"
     exit 0
   else
