@@ -18,6 +18,9 @@ done
 
 echo "Starting Terraform initialization and apply..."
 cd terraform
+rm -rf .terraform
+rm -f terraform.tfstate
+rm -f terraform.tfstate.backup
 terraform init -input=false
 terraform apply -auto-approve
 
