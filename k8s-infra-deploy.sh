@@ -72,6 +72,7 @@ for IP in "${PUBLIC_IPS[@]}"; do
   fi
 done
 
-echo " NGINX not reachable on any public IPs with NodePort $NODEPORT"
+echo " NGINX is not reachable on any public IPs with NodePort $NODEPORT"
 exit 1
+
 
