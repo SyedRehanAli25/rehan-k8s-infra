@@ -18,7 +18,7 @@ done
 
 echo "Starting Terraform initialization and apply..."
 cd terraform
-terraform init -input=false -migrate-state
+terraform init -migrate-state
 terraform apply -auto-approve
 
 echo "Fetching node IPs from Terraform output..."
