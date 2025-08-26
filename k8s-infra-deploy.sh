@@ -1,6 +1,12 @@
-
 #!/bin/bash
 set -e
+
+# Ensure required paths are available (especially for Jenkins)
+export PATH="/usr/bin:/usr/local/bin:$PATH"
+
+# Debug PATH to verify environment in Jenkins
+echo "PATH is: $PATH"
+which terraform
 
 # Check required commands
 for cmd in terraform ansible-playbook jq curl; do
