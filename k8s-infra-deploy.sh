@@ -50,7 +50,7 @@ cd ..
 
 # Use the first node (master) to get the NodePort value
 MASTER_NODE_IP="${PUBLIC_IPS[0]}"
-NODEPORT=$(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@$MASTER_NODE_IP \
+NODEPORT=$(ssh -o StrictHostKeyChecking=no -i /var/lib/jenkins/.ssh/id_rsa ubuntu@$MASTER_NODE_IP \
   "kubectl get svc -n default -l app=nginx -o jsonpath='{.items[0].spec.ports[0].nodePort}'")
 
 if [ -z "$NODEPORT" ]; then
