@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Set KUBECONFIG path to avoid local fallback
+export KUBECONFIG=~/.kube/config
+
 # Ensure required commands exist
 for cmd in terraform ansible-playbook jq curl ssh; do
   if ! command -v $cmd &> /dev/null; then
@@ -42,9 +45,12 @@ cd ..
 
 MASTER_NODE_IP="${PUBLIC_IPS[0]}"
 
-# Get NodePort by SSH-ing to the master node using ssh-agent auth (no key file path)
-NODEPORT=$(ssh -o StrictHostKeyChecking=no -o BatchMode=yes -l ubuntu $MASTER_NODE_IP \
-"KUBECONFIG=/home/ubuntu/.kube/config kubectl get svc -n default -l app=nginx -o jsonpath='{.items[0].spec.ports[0].nodePort}'")
+# Get NodePort from master node via SSH
+NODEPORT=$(ssh -o StrictHostKeyChecking=no -o BatchMode=yes -l ubuntu $MASTER_NODE_IP <<'EOF'
+export KUBECONFIG=/home/ubuntu/.kube/config
+kubectl get svc -n default -l app=nginx -o jsonpath='{.items[0].spec.ports[0].nodePort}'
+EOF
+)
 
 if [ -z "$NODEPORT" ]; then
   echo "Could not retrieve NodePort for NGINX"
@@ -58,13 +64,13 @@ for IP in "${PUBLIC_IPS[@]}"; do
   echo "Testing http://$IP:$NODEPORT from remote node..."
   if ssh -o StrictHostKeyChecking=no -o BatchMode=yes -l ubuntu $IP \
     "curl -s --max-time 5 http://localhost:$NODEPORT" | grep -q "Welcome to nginx"; then
-    echo "NGINX is reachable at http://$IP:$NODEPORT"
+    echo "NGINX is reachable at: http://$IP:$NODEPORT"
     exit 0
   else
     echo "$IP is not serving NGINX, trying next..."
   fi
 done
 
-echo "NGINX is not reachable on any public IPs with NodePort $NODEPORT"
+echo " NGINX is not reachable on any public IPs with NodePort $NODEPORT"
 exit 1
 
